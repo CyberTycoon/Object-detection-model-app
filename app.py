@@ -23,12 +23,11 @@ MODEL_PATH = os.path.join(BASE_DIR, "yolov8n.pt")
 MODEL_DRIVE_URL = "https://drive.google.com/file/d/13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK/view?usp=sharing"
 
 def download_file_from_google_drive(url, destination):
-    # Extract file ID from Google Drive shareable link
     import re
-    file_id = re.findall(r'/d/([a-zA-Z0-9_-]+)', url)
-    if not file_id:
+    file_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
+    if not file_id_match:
         raise ValueError("Invalid Google Drive URL")
-    file_id = file_id[0]
+    file_id = file_id_match.group(1)
     download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
     session = requests.Session()
     response = session.get(download_url, stream=True)
@@ -111,3 +110,21 @@ def root():
 @app.get("/upload", response_class=HTMLResponse)
 async def upload_form(request: Request):
     return templates.TemplateResponse("upload.html", {"request": request})
+
+@app.post("/detect", response_class=JSONResponse)
+async def detect_objects_endpoint(
+    file: UploadFile = File(...),
+    confidence: float = Form(0.25)
+):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        annotated_img, detections, summary = detect_objects(image, confidence)
+        img_base64 = image_to_base64(annotated_img)
+        return JSONResponse(content={
+            "annotated_image": img_base64,
+            "detections": detections,
+            "detection_summary": summary
+        })
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)

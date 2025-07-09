@@ -558,7 +558,7 @@
             const formData = new FormData(form);
 
             try {
-                const response = await fetch('/detect/', {
+                const response = await fetch('/detect', {
                     method: 'POST',
                     body: formData
                 });
@@ -570,13 +570,13 @@
                     resultsSection.style.display = 'block';
                     resultsSection.classList.add('fade-in');
 
-                    // Show annotated image
-                    outputImage.src = 'data:image/png;base64,' + data.image_base64;
+                    // Show annotated image (use correct key)
+                    outputImage.src = 'data:image/png;base64,' + data.annotated_image;
                     outputImage.style.display = 'block';
                     outputImage.classList.add('fade-in');
 
-                    // Show summary
-                    summary.textContent = data.summary;
+                    // Show summary (use correct key)
+                    summary.textContent = data.detection_summary;
 
                     // Show detection results
                     displayDetections(data.detections);
