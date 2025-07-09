@@ -22,6 +22,8 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 MODEL_PATH = os.path.join(BASE_DIR, "yolov8n.pt")
 MODEL_DRIVE_URL = "https://drive.google.com/file/d/13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK/view?usp=sharing"
 
+model = None  # Global cache
+
 def download_file_from_google_drive(url, destination):
     import re
     file_id_match = re.search(r'/d/([a-zA-Z0-9_-]+)', url)
@@ -43,12 +45,15 @@ def download_file_from_google_drive(url, destination):
             if chunk:
                 f.write(chunk)
 
-if not os.path.exists(MODEL_PATH):
-    print("Downloading YOLOv8n model from Google Drive...")
-    download_file_from_google_drive(MODEL_DRIVE_URL, MODEL_PATH)
-    print("Download complete.")
-
-model = YOLO(MODEL_PATH)
+def get_model():
+    global model
+    if model is None:
+        if not os.path.exists(MODEL_PATH):
+            print("Downloading YOLOv8n model from Google Drive...")
+            download_file_from_google_drive(MODEL_DRIVE_URL, MODEL_PATH)
+            print("Download complete.")
+        model = YOLO(MODEL_PATH)
+    return model
 
 def detect_objects(image, confidence_threshold=0.25):
     if image is None:
@@ -58,6 +63,7 @@ def detect_objects(image, confidence_threshold=0.25):
     if image.mode != 'RGB':
         image = image.convert('RGB')
     img_array = np.array(image)
+    model = get_model() # Ensure model is loaded for each detection
     results = model.predict(img_array, conf=confidence_threshold)
     result = results[0]
     annotated_img = result.plot()
