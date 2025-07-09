@@ -22,6 +22,28 @@ templates = Jinja2Templates(directory=TEMPLATES_DIR)
 MODEL_PATH = os.path.join(BASE_DIR, "yolov8n.pt")
 MODEL_DRIVE_URL = "https://drive.google.com/file/d/13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK/view?usp=sharing"
 
+def download_file_from_google_drive(url, destination):
+    # Extract file ID from Google Drive shareable link
+    import re
+    file_id = re.findall(r'/d/([a-zA-Z0-9_-]+)', url)
+    if not file_id:
+        raise ValueError("Invalid Google Drive URL")
+    file_id = file_id[0]
+    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+    session = requests.Session()
+    response = session.get(download_url, stream=True)
+    token = None
+    for key, value in response.cookies.items():
+        if key.startswith('download_warning'):
+            token = value
+    if token:
+        params = {'id': file_id, 'confirm': token}
+        response = session.get(download_url, params=params, stream=True)
+    with open(destination, "wb") as f:
+        for chunk in response.iter_content(32768):
+            if chunk:
+                f.write(chunk)
+
 if not os.path.exists(MODEL_PATH):
     print("Downloading YOLOv8n model from Google Drive...")
     download_file_from_google_drive(MODEL_DRIVE_URL, MODEL_PATH)
@@ -82,64 +104,10 @@ def image_to_base64(img: Image.Image) -> str:
     img.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-def download_file_from_google_drive(url, destination):
-    # Extract file ID from Google Drive shareable link
-    import re
-    file_id = re.findall(r'/d/([a-zA-Z0-9_-]+)', url)
-    if not file_id:
-        raise ValueError("Invalid Google Drive URL")
-    file_id = file_id[0]
-    download_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    session = requests.Session()
-    response = session.get(download_url, stream=True)
-    token = None
-    for key, value in response.cookies.items():
-        if key.startswith('download_warning'):
-            token = value
-    if token:
-        params = {'id': file_id, 'confirm': token}
-        response = session.get(download_url, params=params, stream=True)
-    with open(destination, "wb") as f:
-        for chunk in response.iter_content(32768):
-            if chunk:
-                f.write(chunk)
-
 @app.get("/")
-def read_root():
+def root():
     return {"message": "Welcome to the YOLOv8 Object Detection API!"}
 
 @app.get("/upload", response_class=HTMLResponse)
 async def upload_form(request: Request):
     return templates.TemplateResponse("upload.html", {"request": request})
-
-@app.post("/detect/")
-async def detect(
-    file: UploadFile = File(...),
-    confidence: float = Form(0.25)
-):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents))
-    annotated_img, detections, summary = detect_objects(image, confidence)
-    img_base64 = image_to_base64(annotated_img)
-    return JSONResponse(content={
-        "image_base64": img_base64,
-        "detections": detections,
-        "summary": summary
-    })
-
-@app.post("/detect-json/")
-async def detect_json(
-    file: UploadFile = File(...),
-    confidence: float = Form(0.25)
-):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents))
-    _, detections, summary = detect_objects(image, confidence)
-    return JSONResponse(content={
-        "detections": detections,
-        "summary": summary
-    })
-
-@app.get("/test")
-def test():
-    return {"status": "ok"}
