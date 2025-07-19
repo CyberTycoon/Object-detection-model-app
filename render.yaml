@@ -8,11 +8,3 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.0"
-      - key: MODEL_DIR
-        value: /var/data/models
-      - key: YOLO_CACHE
-        value: /var/data/models
-    disks:
-      - name: models-disk
-        mountPath: /var/data/models
-        sizeGB: 1
