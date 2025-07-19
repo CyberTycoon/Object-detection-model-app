@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: yolo-object-detection
+    env: python
+    plan: free
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.0"
+      - key: MODEL_DIR
+        value: /var/data/models
+      - key: YOLO_CACHE
+        value: /var/data/models
+    disks:
+      - name: models-disk
+        mountPath: /var/data/models
+        sizeGB: 1
