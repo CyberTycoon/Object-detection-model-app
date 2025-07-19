@@ -12,12 +12,12 @@ import uvicorn
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="YOLOv8 Object Detection API")
+app = FastAPI(title="Object Detection API")
 
 model = None
 MODEL_URL = "https://drive.google.com/uc?export=download&id=13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK"
 MODEL_PATH = "best.pt"
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.1
 
 def download_file_from_google_drive(url, destination):
     """Downloads a file from a Google Drive link."""
@@ -61,22 +61,24 @@ def process_image_and_predict(image_bytes):
     assert model is not None, "Model has not been loaded."
     try:
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        results = model(np.array(image))
+        results = model(np.array(image), conf=CONFIDENCE_THRESHOLD)
         
         detections = []
+        logger.info(f"Processing {len(results)} result sets.")
         for result in results:
             boxes = result.boxes
-            for box in boxes:
-                conf = box.conf[0].item()
-                if conf >= CONFIDENCE_THRESHOLD:
-                    xyxy = box.xyxy[0].tolist()
-                    cls = int(box.cls[0].item())
-                    class_name = model.names[cls]
-                    detections.append({
-                        "class_name": class_name,
-                        "confidence": conf,
-                        "bounding_box": xyxy
-                    })
+            logger.info(f"Model returned {len(boxes)} boxes.")
+            for i in range(len(boxes)):
+                conf = boxes.conf[i].item()
+                xyxy = boxes.xyxy[i].tolist()
+                cls = int(boxes.cls[i].item())
+                class_name = model.names[cls]
+                detections.append({
+                    "class_name": class_name,
+                    "confidence": conf,
+                    "bounding_box": xyxy
+                })
+        logger.info(f"Returning {len(detections)} detections.")
         return detections
     except Exception as e:
         logger.error(f"Prediction error: {e}")
