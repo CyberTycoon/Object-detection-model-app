@@ -1,5 +1,7 @@
 import io
 import logging
+import os
+import requests
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from PIL import Image
 import numpy as np
@@ -12,23 +14,47 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="YOLOv8 Object Detection API")
 
-# Load the model directly from the Google Drive URL as you requested.
-# Note: The YOLO library might not support Google Drive links directly.
-# If this fails, we will need to download the file first.
-MODEL_URL = "https://drive.google.com/uc?export=download&id=13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK"
 model = None
+MODEL_URL = "https://drive.google.com/uc?export=download&id=13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK"
+MODEL_PATH = "best.pt"
+CONFIDENCE_THRESHOLD = 0.5
+
+def download_file_from_google_drive(url, destination):
+    """Downloads a file from a Google Drive link."""
+    logger.info(f"Attempting to download model from {url} to {destination}...")
+    try:
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(destination, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+        logger.info(f"Model downloaded successfully to {destination}")
+        return True
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Failed to download model: {e}")
+        return False
+
+def download_yolov8_model():
+    """Checks for the model file and downloads it if it doesn't exist."""
+    if not os.path.exists(MODEL_PATH):
+        logger.info("Model not found locally. Starting download...")
+        download_file_from_google_drive(MODEL_URL, MODEL_PATH)
+    else:
+        logger.info(f"Model already exists at {MODEL_PATH}. Skipping download.")
 
 @app.on_event("startup")
 async def load_model():
-    """Load the model on startup."""
+    """Load the model on startup after ensuring it's downloaded."""
     global model
-    logger.info("Loading YOLOv8 model...")
+    logger.info("Ensuring YOLOv8 model is available...")
     try:
-        model = YOLO("best.pt")
+        download_yolov8_model()
+        logger.info("Model check/download complete.")
+        model = YOLO(MODEL_PATH)
         logger.info("Model loaded successfully!")
     except Exception as e:
-        logger.error(f"Fatal error loading model: {e}")
-        raise RuntimeError(f"Failed to load model: {e}")
+        logger.error(f"Fatal error during startup: {e}")
+        raise RuntimeError(f"Failed to initialize the application: {e}")
 
 def process_image_and_predict(image_bytes):
     """Receives image bytes, performs prediction, and returns results."""
@@ -41,15 +67,16 @@ def process_image_and_predict(image_bytes):
         for result in results:
             boxes = result.boxes
             for box in boxes:
-                xyxy = box.xyxy[0].tolist()
                 conf = box.conf[0].item()
-                cls = int(box.cls[0].item())
-                class_name = model.names[cls]
-                detections.append({
-                    "class_name": class_name,
-                    "confidence": conf,
-                    "bounding_box": xyxy
-                })
+                if conf >= CONFIDENCE_THRESHOLD:
+                    xyxy = box.xyxy[0].tolist()
+                    cls = int(box.cls[0].item())
+                    class_name = model.names[cls]
+                    detections.append({
+                        "class_name": class_name,
+                        "confidence": conf,
+                        "bounding_box": xyxy
+                    })
         return detections
     except Exception as e:
         logger.error(f"Prediction error: {e}")

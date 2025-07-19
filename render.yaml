@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: yolo-object-detection
+    name: object-detection
     env: python
     plan: free
-    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt && curl -L 'https://drive.google.com/uc?export=download&id=13sDjGcLhDUjTM8hvKlASYgkQWIlkgcMK' -o best.pt"
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt && python download_model.py"
     startCommand: "uvicorn app:app --host 0.0.0.0 --port $PORT"
     envVars:
       - key: PYTHON_VERSION
