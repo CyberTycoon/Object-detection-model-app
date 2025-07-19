@@ -46,7 +46,7 @@ def download_yolov8_model():
 async def load_model():
     """Load the model on startup after ensuring it's downloaded."""
     global model
-    logger.info("Ensuring YOLOv8 model is available...")
+    logger.info("Ensuring  model is available...")
     try:
         download_yolov8_model()
         logger.info("Model check/download complete.")
