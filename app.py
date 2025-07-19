@@ -24,23 +24,10 @@ async def load_model():
     global model
     logger.info("Loading YOLOv8 model...")
     try:
-        # We will try to load the model from a local path first.
-        # If it doesn't exist, we'll download it. This is more robust.
-        local_model_path = "best.pt"
-        if not __import__('os').path.exists(local_model_path):
-            logger.info("Model not found locally, downloading from Google Drive...")
-            import requests
-            with requests.get(MODEL_URL, stream=True) as r:
-                r.raise_for_status()
-                with open(local_model_path, 'wb') as f:
-                    for chunk in r.iter_content(chunk_size=8192):
-                        f.write(chunk)
-            logger.info("Model downloaded successfully.")
-        model = YOLO(local_model_path)
+        model = YOLO("best.pt")
         logger.info("Model loaded successfully!")
     except Exception as e:
         logger.error(f"Fatal error loading model: {e}")
-        # We raise a runtime error to stop the app if the model can't be loaded.
         raise RuntimeError(f"Failed to load model: {e}")
 
 def process_image_and_predict(image_bytes):
